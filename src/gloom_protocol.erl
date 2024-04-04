@@ -8,7 +8,7 @@
 -type reply() ::
     {reply, message(), state()}
     | {pop, state()}
-    | {push, module(), state()}
+    | {push, module(), any()}
     | {noreply, state()}
     | {update, module(), state()}.
 
@@ -24,8 +24,13 @@ start_link(Ref, Transport, Opts) ->
 
 init(Ref, Transport, [Handler | Opts]) ->
     {ok, Socket} = ranch:handshake(Ref),
-    {ok, State} = Handler:init(Opts),
-    loop(Socket, Transport, [{Handler, State}]).
+    case Handler:init(Opts) of 
+        {ok, State} -> 
+            loop(Socket, Transport, [{Handler, State}]);
+        {reply, Message, State} ->
+            Transport:send(Socket, Message),
+            loop(Socket, Transport, [{Handler, State}])
+    end.
 
 loop(Socket, Transport, [{Handler, State} | StateQueue]) ->
     case Transport:recv(Socket, 0, infinity) of
@@ -33,8 +38,14 @@ loop(Socket, Transport, [{Handler, State} | StateQueue]) ->
             case Handler:recv(string:trim(Data), State) of
                 stop ->
                     Transport:close(Socket);
-                {push, NewHandler, NewState} ->
-                    loop(Socket, Transport, [{NewHandler, NewState}, {Handler, State} | StateQueue]);
+                {push, NewHandler, Opts} ->
+                    NextState = case NewHandler:init(Opts) of
+                        {ok, NewState} -> NewState;
+                        {reply, Message, NewState} ->
+                            Transport:send(Socket, Message),
+                            NewState
+                    end,
+                    loop(Socket, Transport, [{NewHandler, NextState}, {Handler, State} | StateQueue]);
                 {pop, NewState} ->
                     [{OldState, OldHandler} | OldQueue] = StateQueue,
                     FixedState = OldHandler:resolve_state(NewState, OldState),
