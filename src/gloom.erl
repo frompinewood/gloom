@@ -1,14 +1,15 @@
 -module(gloom).
 
--export([start_listener/1]).
+-export([start_listener/3]).
 
-start_listener(Name) ->
-    {ok, Port} = application:get_env(port),
-    {ok, Handler} = application:get_env(gloom_handler),
+-spec start_listener(atom(), list(), module()) -> 
+    {ok, pid()} |
+    {error, any()}.
+start_listener(Name, TranOpts, Handler) ->
     ranch:start_listener(
         Name,
         ranch_tcp,
-        [{port, Port}],
+        TranOpts,
         gloom_protocol,
         [Handler]
     ).
