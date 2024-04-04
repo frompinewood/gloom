@@ -1,12 +1,13 @@
 -module(gloom_protocol).
 
 -export([start_link/3, init/3]).
+-export_type([state/0, message/0, reply/0]).
 
 -type state() :: any().
 -type message() :: string().
 -type reply() ::
     {reply, message(), state()}
-    | pop
+    | {pop, state()}
     | {push, module(), state()}
     | {noreply, state()}
     | {update, module(), state()}.
@@ -14,6 +15,8 @@
 -callback init(any()) -> {ok, state()}.
 -callback recv(message(), state()) -> reply().
 -callback tick(state()) -> reply().
+
+-optional_callbacks([tick/1]).
 
 start_link(Ref, Transport, Opts) ->
     Pid = spawn_link(?MODULE, init, [Ref, Transport, Opts]),
@@ -32,9 +35,10 @@ loop(Socket, Transport, [{Handler, State} | StateQueue]) ->
                     Transport:close(Socket);
                 {push, NewHandler, NewState} ->
                     loop(Socket, Transport, [{NewHandler, NewState}, {Handler, State} | StateQueue]);
-                pop ->
-                    [NewState | NewQueue] = StateQueue,
-                    loop(Socket, Transport, [NewState | NewQueue]);
+                {pop, NewState} ->
+                    [{OldState, OldHandler} | OldQueue] = StateQueue,
+                    FixedState = OldHandler:resolve_state(NewState, OldState),
+                    loop(Socket, Transport, [{FixedState, OldHandler} | OldQueue]);
                 {reply, Reply, NewState} ->
                     Transport:send(Socket, Reply),
                     loop(Socket, Transport, [{Handler, NewState} | StateQueue]);
