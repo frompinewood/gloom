@@ -37,7 +37,7 @@ init(Ref, Transport, [Handler | Opts]) ->
 loop(Socket, Transport, [{Handler, State} | StateQueue]) ->
     case Transport:recv(Socket, 0, infinity) of
         {ok, Data} ->
-            case Handler:recv(string:trim(Data), State) of
+            case Handler:recv(Data, State) of
                 stop ->
                     Transport:close(Socket);
                 {push, NewHandler, Opts} ->
