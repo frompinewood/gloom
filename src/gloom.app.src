@@ -1,0 +1,19 @@
+{application, gloom, [
+    {description, "A multi-user dungeon toolkit written in Erlang/OTP"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {mod, {gloom_app, []}},
+    {applications, [
+        kernel,
+        stdlib,
+        ranch,
+        crypto,
+        lager,
+        bcrypt
+    ]},
+    {env, []},
+    {modules, []},
+
+    {licenses, ["Apache-2.0"]},
+    {links, []}
+]}.
