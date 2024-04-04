@@ -12,11 +12,13 @@
     | {noreply, state()}
     | {update, module(), state()}.
 
+-callback resolve_state(state(), state()) -> state().
 -callback init(any()) -> {ok, state()}.
 -callback recv(message(), state()) -> reply().
--callback tick(state()) -> reply().
+%% Currently unused
+% -callback tick(state()) -> reply().
 
--optional_callbacks([tick/1]).
+% -optional_callbacks([tick/1]).
 
 start_link(Ref, Transport, Opts) ->
     Pid = spawn_link(?MODULE, init, [Ref, Transport, Opts]),
