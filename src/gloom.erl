@@ -1,15 +1,17 @@
 -module(gloom).
 
--export([start_listener/3]).
+-export([start_listener/3, start_listener/4]).
 
--spec start_listener(atom(), list(), module()) -> 
-    {ok, pid()} |
-    {error, any()}.
-start_listener(Name, TranOpts, Handler) ->
+-spec start_listener(term(), non_neg_integer(), module()) -> {ok, pid()}.
+start_listener(Name, Port, CallbackModule) ->
+    start_listener(Name, Port, CallbackModule, []).
+
+-spec start_listener(term(), non_neg_integer(), module(), list()) -> {ok, pid()}.
+start_listener(Name, Port, CallbackModule, Args) ->
     ranch:start_listener(
         Name,
         ranch_tcp,
-        TranOpts,
+        [{port, Port}],
         gloom_protocol,
-        [Handler]
+        [CallbackModule | Args]
     ).

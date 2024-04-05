@@ -1,65 +1,31 @@
 -module(gloom_protocol).
 
--export([start_link/3, init/3]).
--export_type([state/0, message/0, reply/0]).
+-export([start_link/3, init/3, terminate/2, handle_info/2, handle_cast/2]).
 
--type state() :: any().
--type message() :: string().
--type reply() ::
-    {reply, message(), state()}
-    | {pop, state()}
-    | {push, module(), any()}
-    | {noreply, state()}
-    | {update, module(), state()}.
-
--callback resolve_state(state(), state()) -> state().
--callback init(any()) -> {ok, state()}.
--callback recv(message(), state()) -> reply().
-%% Currently unused
-% -callback tick(state()) -> reply().
-
-% -optional_callbacks([tick/1]).
-
-start_link(Ref, Transport, Opts) ->
-    Pid = spawn_link(?MODULE, init, [Ref, Transport, Opts]),
+start_link(Ref, Transport, Args) ->
+    Pid = proc_lib:spawn_link(?MODULE, init, [Ref, Transport, Args]),
     {ok, Pid}.
 
-init(Ref, Transport, [Handler | Opts]) ->
+init(Ref, Transport, [Handler | Args]) ->
     {ok, Socket} = ranch:handshake(Ref),
-    case Handler:init(Opts) of 
-        {ok, State} -> 
-            loop(Socket, Transport, [{Handler, State}]);
-        {reply, Message, State} ->
-            Transport:send(Socket, Message),
-            loop(Socket, Transport, [{Handler, State}])
-    end.
+    Transport:setopts(Socket, [{active, true}]),
+    lager:info("~p connected.", [Socket]),
+    {ok, Pid} = Handler:start_link(self(), Args),
+    lager:info("Started ~p.", [Pid]),
+    gen_server:enter_loop(?MODULE, [], {Transport, Socket, Handler, Pid}).
 
-loop(Socket, Transport, [{Handler, State} | StateQueue]) ->
-    case Transport:recv(Socket, 0, infinity) of
-        {ok, Data} ->
-            case Handler:recv(Data, State) of
-                stop ->
-                    Transport:close(Socket);
-                {push, NewHandler, Opts} ->
-                    NextState = case NewHandler:init(Opts) of
-                        {ok, NewState} -> NewState;
-                        {reply, Message, NewState} ->
-                            Transport:send(Socket, Message),
-                            NewState
-                    end,
-                    loop(Socket, Transport, [{NewHandler, NextState}, {Handler, State} | StateQueue]);
-                {pop, NewState} ->
-                    [{OldState, OldHandler} | OldQueue] = StateQueue,
-                    FixedState = OldHandler:resolve_state(NewState, OldState),
-                    loop(Socket, Transport, [{FixedState, OldHandler} | OldQueue]);
-                {reply, Reply, NewState} ->
-                    Transport:send(Socket, Reply),
-                    loop(Socket, Transport, [{Handler, NewState} | StateQueue]);
-                {noreply, NewState} ->
-                    loop(Socket, Transport, [{Handler, NewState} | StateQueue])
-            end;
-        {error, timeout} ->
-            lager:info("~p timed out.", [Socket]);
-        {error, closed} ->
-            lager:info("~p closed.", [Socket])
-    end.
+handle_cast({send, Data}, {T, S, _, _} = State) ->
+    T:send(S, Data),
+    {noreply, State}.
+
+handle_info({tcp_closed, S}, {_,S,_,_} = State) -> 
+    lager:info("~p closed.", [S]),
+    {stop, normal, State};
+handle_info({tcp, S, Data}, {_,S,H,P} = State) ->
+    H:send(P, Data),
+    {noreply, State}.
+
+terminate(normal, {_,_,H,P}) ->
+    H:stop(P),
+    lager:info("Stopped ~p.", [P]),
+    ok.
