@@ -11,6 +11,10 @@ init([]) ->
 create(User, Pass) -> gen_server:call(?MODULE, {create, User, Pass}).
 verify(User, Pass) -> gen_server:call(?MODULE, {verify, User, Pass}).
 
+handle_call({create, User, _}, _From, Table) when
+    length(User) < 3
+->
+    {reply, {error, bad_username}, Table};
 handle_call({create, User, Pass}, _From, Table) ->
     Reply =
         case ets:lookup(Table, User) of
