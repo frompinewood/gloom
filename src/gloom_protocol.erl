@@ -15,16 +15,30 @@ init(Ref, Transport, [Handler | Args]) ->
     gen_server:enter_loop(?MODULE, [], {Transport, Socket, Handler, Pid}).
 
 handle_cast({send, Data}, {T, S, _, _} = State) ->
-    T:send(S, Data),
+    T:send(S, [Data,$\n]),
+    {noreply, State};
+handle_cast({prompt, Name, Prompts}, {T, S, H, P} = State) ->
+    T:setopts(S, [{active, false}]),
+    Response = lists:foldl(
+        fun({Tag, Prompt}, Acc) ->
+            T:send(S, Prompt),
+            {ok, Data} = T:recv(S, 0, 60000),
+            Acc#{Tag => string:trim(Data)}
+        end,
+        #{},
+        Prompts
+    ),
+    H:send(P, {Name, Response}),
+    T:setopts(S, [{active, true}]),
     {noreply, State}.
 
-handle_info({tcp_closed, S}, {_,S,_,_} = State) -> 
+handle_info({tcp_closed, S}, {_, S, _, _} = State) ->
     lager:info("~p closed.", [S]),
     {stop, normal, State};
-handle_info({tcp, S, Data}, {_,S,H,P} = State) ->
+handle_info({tcp, S, Data}, {_, S, H, P} = State) ->
     H:send(P, string:trim(Data)),
     {noreply, State}.
 
-terminate(normal, {_,_,_,P}) ->
+terminate(normal, {_, _, _, P}) ->
     lager:info("Stopped ~p.", [P]),
     ok.
