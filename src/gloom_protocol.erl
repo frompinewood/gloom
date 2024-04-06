@@ -25,7 +25,6 @@ handle_info({tcp, S, Data}, {_,S,H,P} = State) ->
     H:send(P, Data),
     {noreply, State}.
 
-terminate(normal, {_,_,H,P}) ->
-    H:stop(P),
+terminate(normal, {_,_,_,P}) ->
     lager:info("Stopped ~p.", [P]),
     ok.
