@@ -15,7 +15,7 @@ init(Ref, Transport, [Handler | Args]) ->
     gen_server:enter_loop(?MODULE, [], {Transport, Socket, Handler, Pid}).
 
 handle_cast({send, Data}, {T, S, _, _} = State) ->
-    T:send(S, [Data,$\n]),
+    T:send(S, [Data, $\n]),
     {noreply, State};
 handle_cast({prompt, Name, Prompts}, {T, S, H, P} = State) ->
     T:setopts(S, [{active, false}]),
