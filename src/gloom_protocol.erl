@@ -22,7 +22,7 @@ handle_info({tcp_closed, S}, {_,S,_,_} = State) ->
     lager:info("~p closed.", [S]),
     {stop, normal, State};
 handle_info({tcp, S, Data}, {_,S,H,P} = State) ->
-    H:send(P, Data),
+    H:send(P, string:trim(Data)),
     {noreply, State}.
 
 terminate(normal, {_,_,_,P}) ->
