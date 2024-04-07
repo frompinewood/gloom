@@ -4,6 +4,8 @@
 
 -export([send/2, send/3, prompt/3]).
 
+-type prompt_type() :: string() | {string(), [string()]}.
+
 -spec start_listener(term(), non_neg_integer(), module()) -> {ok, pid()}.
 start_listener(Name, Port, CallbackModule) ->
     start_listener(Name, Port, CallbackModule, []).
@@ -26,6 +28,6 @@ send(Pid, Data) ->
 send(Pid, Data, Args) ->
     gen_server:cast(Pid, {send, io_lib:format(Data, Args)}).
 
--spec prompt(pid(), atom(), [{atom(), string()}]) -> ok.
+-spec prompt(pid(), atom(), [{atom(), prompt_type()}]) -> ok.
 prompt(Pid, Name, Prompts) ->
     gen_server:cast(Pid, {prompt, Name, Prompts}).
