@@ -14,6 +14,9 @@ init(Ref, Transport, [Handler | Args]) ->
     lager:info("Started ~p.", [Pid]),
     gen_server:enter_loop(?MODULE, [], {Transport, Socket, Handler, Pid}).
 
+handle_cast({send, close}, {T, S, _, _} = State) ->
+    T:close(S),
+    {stop, normal, State};
 handle_cast({send, Data}, {T, S, _, _} = State) ->
     T:send(S, [Data, $\n]),
     {noreply, State};
