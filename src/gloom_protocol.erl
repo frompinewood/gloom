@@ -51,13 +51,13 @@ prompt({Tag, Prompt}, Transport, Socket) ->
         {error, _} -> prompt({Tag, Prompt}, Transport, Socket)
     end;
 prompt({Tag, Prompt, Options}, Transport, Socket) ->
-    Transport:send(Socket, [Prompt, "\n", string:join(Options, "\n"), "\n"]),
+    Transport:send(Socket, [string:join(Options, "\n"),"\n", Prompt]),
     case Transport:recv(Socket, 0, 60000) of
         {ok, Data} ->
             Data1 = string:trim(Data),
             case
                 lists:member(
-                    string:lowercase(Data1),
+                    binary_to_list(string:lowercase(Data1)),
                     lists:map(fun string:lowercase/1, Options)
                 )
             of
